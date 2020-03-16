@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 import json
+import schedule
+import time
 
 from kafka import KafkaProducer
 from alpha_vantage.timeseries import TimeSeries
@@ -46,11 +48,37 @@ def get_price(ticker):
 	todays_date = meta_data['3. Last Refreshed']
 	return data[todays_date]
 
-ticker = 'TSLA'
+def send_price_to_kafka(tickers):
+	'''
+	Desc: sends stock price to kafka consumer 
+	with 5 call/sec;500 call/say limit
+	@param: tickers - tuple of strings; list of stocks to fetch
+	'''
+	for ticker in tickers:
+		producer.send(ticker, get_price(ticker))
+		producer.flush()
+		time.sleep(15)
 
-#TO-DO: time data send every afternoon at 7pm 
-data = get_price(ticker)
-producer.send(ticker, data)
-producer.flush()
+def test_send(ticker):
+	producer.send(ticker, {'name':ticker, 'data':555.3})
+	producer.flush()
+
+if __name__ == "__main__":
+	#TODO: read file of S&P 500 data
+	stock_list =['TSLA', 'GOOGL']
+	#schedule.every(10).seconds.do(send_price_to_kafka, ticker[0])
+	#schedule.every(10).seconds.do(send_price_to_kafka, ticker[1])
+	#schedule.every.day.at("19:00").do(send_price_to_kafka, ticker)
+	schedule.every(1).seconds.do(test_send, stock_list)
+
+	#500 requests per day at 5 calls per minute
+	while True:
+		schedule.run_pending()
+		#sleep a minute and 5 seconds
+		time.sleep(1)
+
+
+
+
 
 
