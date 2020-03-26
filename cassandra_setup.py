@@ -65,7 +65,7 @@ class CassandraCluster:
 												volume int);
 												
 							"""%table_name)
-		self.log.info(table_name, " table created...")
+		self.log.info("%s table checked and set...",table_name)
 
 	def insert_data(self, data, table_name):
 		'''
@@ -120,12 +120,12 @@ if __name__ == "__main__":
 	cassDB = CassandraCluster('127.0.0.1')
 	cassDB.setLogger()
 
-'''
+
 	#prep database
 	cassDB.createKeyspace()
 	for new_table in stocks['Symbol']:
 		cassDB.createTable(new_table)
-
+'''
 	#send data from kafka to database
 	for msg in consumer:
 		#company stock symbol for table
@@ -133,5 +133,4 @@ if __name__ == "__main__":
 		#msg[symbol] returns list of tuples
 		cassDB.insert_data(msg[symbol], symbol)
 '''
-
 	
