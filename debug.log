@@ -1,0 +1,8 @@
+INFO:cassandra:Created logger...
+DEBUG:cassandra.cluster:Shutting down Cluster Scheduler
+DEBUG:cassandra.cluster:Shutting down control connection
+DEBUG:cassandra.io.libevreactor:Closing connection (139945170320720) to 127.0.0.1:9042
+DEBUG:cassandra.io.libevreactor:Closed socket to 127.0.0.1:9042
+DEBUG:cassandra.io.libevreactor:Closing connection (139945108537936) to 127.0.0.1:9042
+DEBUG:cassandra.io.libevreactor:Closed socket to 127.0.0.1:9042
+DEBUG:cassandra.io.libevreactor:All Connections currently closed, event loop ended

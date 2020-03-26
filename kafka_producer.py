@@ -47,11 +47,15 @@ def get_price(symbol, historic=False):
 
 	'''
 	data, meta_data = ts.get_daily(symbol)
-	#returns today's data
+	#returns today's data as a lsit of tuple(s):
+	#  (date, open, high, low, close, volume) for kafka consumer
+	return_data = {symbol:[]}
 	if not historic:
 		todays_date = meta_data['3. Last Refreshed']
-		return_data = data[todays_date] 
-	else: return_data = data
+		return_data[symbol] = [((todays_date,)+tuple(data[todays_date].values()))]
+	else: 
+		for date in data.keys():
+			return_data[symbol].append(((date,)+tuple(data[date].values())))
 	return return_data
 
 def send_price_to_kafka(company_symbols, historic=False):

@@ -4,28 +4,17 @@ import argparse
 from cassandra.cluster import Cluster, BatchStatement
 from kafka import KafkaConsumer
 
-# Local connection points
-kafka_broker = '127.0.0.1:9092'
-cassandra_session = '127.0.0.1:9042'
 
 class CassandraCluster:
 	
-	def __init__(self, indx_filename, session=None, keyspace='sp500'):
-		self.cluster = None
-		self.index_filename = indx_filename
-		self.session = session
+	def __init__(self, contact, keyspace='sp500'):
+		self.cluster = Cluster(contact_points=[contact])
+		self.session = self.cluster.connect()
 		self.keyspace = keyspace
 		self.log = None
 
 	def __del__(self):
-		self.cluster.shutdown()
-		
-	def createSession(self):
-		'''
-		Desc - Connects to the currently running cluster of cassandra on the local computer
-		'''
-		self.cluster = Cluster(['localhost'])
-		self.session = self.cluster.connect(self.keyspace)
+		self.session.shutdown()
 
 	def getSession(self):
 		'''
@@ -37,26 +26,30 @@ class CassandraCluster:
 		'''
 		Desc - creates a logger to output and log any activity.
 		'''
-		logger_format = logging.Formatter("%(asciitime)s [%(levelname)s] %(name)s: %(message)s")
-		logging.basicConfig(format=logger_format)
-		log = logging.getLogger()
-		log.setLevel('INFO')
-		self.log = log
+		logger = logging.getLogger('cassandra')
+		logger_format = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+		log = logging.StreamHandler()
+		logging.basicConfig(filename="debug.log", filemode='w', level=logging.DEBUG)
+		log.setFormatter(logger_format)
+		logger.addHandler(log)
+		logger.info('Created logger...')
+		self.log = logger
 
-	def createKeyspace(self, keyspace):
+	def createKeyspace(self, keyspace='sp500'):
 		'''
 		Desc - creating a keyspace, "keypace" holds the column families for the database.
 				it will create a new keyspace if it does not currently exist.
 		@param - keyspace: the name to set the keypace to
 		'''
+		keyspace = self.keyspace
 		self.session.execute("""
-						CREATE KEYSPACE IF NOT EXIST %s
-						WITH replication = {'class':'SimpleStrategy',
-											'replication_factor':3}
+						CREATE KEYSPACE IF NOT EXISTS %s
+						WITH replication = {'class':'SimpleStrategy','replication_factor':'3'};
 						"""%keyspace)
 
 		self.log.info('setting keyspace...')
-		self.session.set_keyspace(keyspace)
+		self.session.execute('USE %s'%keyspace)
+		print(self.cluster.metadata.keyspaces)
 		
 	def createTable(self, table_name):
 		'''
@@ -64,7 +57,7 @@ class CassandraCluster:
 		@param - table_name: the name of the table to be created
 		'''
 		self.session.execute("""
-							CREATE TABLE IF NOT EXIST %s (date timestamp PRIMARY KEY,
+							CREATE TABLE IF NOT EXISTS %s (date timestamp PRIMARY KEY,
 												open float,
 												high float,
 												low float,
@@ -80,54 +73,65 @@ class CassandraCluster:
 		@param - data: list of tuples containing data needing to be inserted
 		@param - table_name: the name of the table to insert the data
 		'''
-		sql_prep = self.session.prepare("""
-					INSERT INTO %s (date, open, high, low, close, volume) VALUES (?,?,?,?,?,?)
+		try:
+			sql_prep = self.session.prepare("""
+					INSERT INTO %s (date, open, high, low, close, volume) VALUES (?,?,?,?,?,?);
 				"""%table_name)
-		batch = BatchStatement()
-		for row_tuple in data:
-			batch.add(sql_prep, row_tuple)
-		self.session.execute(batch)
-		self.log.info('Batch insert complete...')
-
-	def appendTable(self, data, table_name):
-		'''
-		Desc - append data row to a specified table
-		@param - data: list of tuples with data needing to be inserted
-		@param - table_name: the name of the table to insert the data
-		'''
-		self.session.execute("""
-							INSERT INTO %s (date, open, high, low, close, volume) 
-							VALUES (?,?,?,?,?,?)
-							"""%table_name)
-		self.log.info('Inserted into table...')
+			batch = BatchStatement()
+			for row_tuple in data:
+				batch.add(sql_prep, row_tuple)
+			self.session.execute(batch)
+			self.log.info('Batch insert complete...')
+		except:
+			self.log.info("ERROR: Could not append to table...")
 	
 	def selectData(self, table_name, range):
 		'''
 		Desc - select data from a range of timestamps in the specified table name.
 		@param - table_name: the name of the table to retrieve data from
-		@param - range: list of keys to retrive data from. Format date mm-dd-yyyy
+		@param - range: list of keys to retrive data from. Format string date mm-dd-yyyy
 		'''
-		
-
+		try:
+			rows = self.session.execute("SELECT * FROM %s WHERE date > %s AND date < %s;"%(table_name,range[0],range[1]))
+			self.log.info("Querying %s WHERE date > %s AND date < %s;%(table_name,range[0],range[1]")
+			return rows
+		except:
+			self.log.info("ERROR: Could not fetch query...")
 
 if __name__ == "__main__":
+
+	# Local connection points
+	kafka_broker = '127.0.0.1:9092'
 	
-	#setup command-line arguments
+	#setup args
 	parser = argparse.ArgumentParser()
-	parser.add_argument('index_filename', help='csv file of company list (ticker, name, sector)')
+	parser.add_argument('csv_file', help='CSV file of company list (ID, Symbol, Name, Sector)')
 
-	#parse command-line arguments
+	#parse args
 	args = parser.parse_args()
-	index_filename = args.index_filename
+	filename = args.csv_file
 
-	stocks = pd.read_csv("SP500.csv")
+	#read company stock meta-data file
+	stocks = pd.read_csv(filename)
 
+	#setup connections
 	consumer = KafkaConsumer(bootstrap_servers=kafka_broker)
 	consumer.subscribe(tuple(stocks['Symbol']))
+	cassDB = CassandraCluster('127.0.0.1')
+	cassDB.setLogger()
 
-	cassDB = CassandraCluster(indx_filename = index_filename)
+'''
+	#prep database
+	cassDB.createKeyspace()
+	for new_table in stocks['Symbol']:
+		cassDB.createTable(new_table)
 
-	
-
+	#send data from kafka to database
+	for msg in consumer:
+		#company stock symbol for table
+		symbol = list(msg.keys())[0]
+		#msg[symbol] returns list of tuples
+		cassDB.insert_data(msg[symbol], symbol)
+'''
 
 	
