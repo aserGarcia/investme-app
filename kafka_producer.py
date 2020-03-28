@@ -46,15 +46,26 @@ def get_price(symbol, historic=False):
 	}
 
 	'''
-	data, meta_data = ts.get_daily(symbol)
+	try:
+		data, meta_data = ts.get_daily(symbol, outputsize='full')
+	except Exception as e:
+		#stock doesn't exist, error out
+		print('ERROR: %s; symbol: %s'%(e,symbol))
+		return {'API_ERROR':[str(e)]}
+
 	#returns today's data as a lsit of tuple(s):
 	#  (date, open, high, low, close, volume) for kafka consumer
+	# "." in cassandra is for keyspace and table, so we remove it.
+	if "." in symbol:
+		symbol = symbol.replace(".","")
 	return_data = {symbol:[]}
 	if not historic:
 		todays_date = meta_data['3. Last Refreshed']
 		return_data[symbol] = [((todays_date,)+tuple(data[todays_date].values()))]
 	else: 
+		print('data size: %d\n'%len(data.keys()))
 		for date in data.keys():
+			
 			return_data[symbol].append(((date,)+tuple(data[date].values())))
 	return return_data
 
@@ -66,6 +77,7 @@ def send_price_to_kafka(company_symbols, historic=False):
 	@param: historic - boolean, send full stock history
 	'''
 	for symbol in company_symbols:
+		print("sending %s "%symbol)
 		producer.send(symbol, get_price(symbol, historic))
 		producer.flush()
 		time.sleep(15)
@@ -74,21 +86,23 @@ if __name__ == "__main__":
 
 	#set args
 	parser = argparse.ArgumentParser()
-	parser.add_argument('update_bool', help='update(bool) - send historic time series of each company to kafka')
-	parser.add_argument('csv_file', help='filename(string) - CSV of companies to send; need column \'Symbol\'')	
-
+	parser.add_argument('--update', type=bool, default=False, help='send historic time series of each company to kafka')
+	parser.add_argument('--csv_file', type=str, help='filename(string) - CSV of companies to send; need column \'Symbol\'')	
+	parser.add_argument('--row_start', type=int, default=0, help='fileval_start - (int) start at a particular row in the file')
 	#parse args
 	args = parser.parse_args()
 	update_bool = args.update_bool
 	filename = args.csv_file
+	start_pt = args.row_start
+
+	print("set: update_bool to %s\nset: filename to %s"%(str(update_bool), filename))
 
 	#reading company list to send
-	stocks = pd.read_csv(filename)
-	stock_symbols = stocks['Symbol']
-
+	stocks = pd.read_csv(filename)[['ID','Symbol']]
+	stock_symbols = stocks.loc[start_pt:]
 	#update check
 	if update_bool:
-		send_price_to_kafka(stocks['Symbol'], historic=True)
+		send_price_to_kafka(stock_symbols['Symbol'], historic=True)
 
 	historic = False
 	#schedule append every day at 7:00pm MST

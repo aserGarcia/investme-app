@@ -1,4 +1,5 @@
-#vim colorscheme industry
+sp500 list:
+https://datahub.io/core/s-and-p-500-companies-financials
 
 ﻿1. setup cassandra
 check connection w/ nodetool status (need java)

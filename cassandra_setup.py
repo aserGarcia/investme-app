@@ -1,6 +1,8 @@
 import logging
 import pandas as pd
 import argparse
+import json
+from datetime import datetime
 from cassandra.cluster import Cluster, BatchStatement
 from kafka import KafkaConsumer
 
@@ -15,6 +17,11 @@ class CassandraCluster:
 
 	def __del__(self):
 		self.session.shutdown()
+
+	def removePeriod(self,st):
+		if "." in st:
+			st = st.replace(".","")
+		return st
 
 	def getSession(self):
 		'''
@@ -32,7 +39,6 @@ class CassandraCluster:
 		logging.basicConfig(filename="debug.log", filemode='w', level=logging.DEBUG)
 		log.setFormatter(logger_format)
 		logger.addHandler(log)
-		logger.info('Created logger...')
 		self.log = logger
 
 	def createKeyspace(self, keyspace='sp500'):
@@ -56,8 +62,9 @@ class CassandraCluster:
 		Desc - create a table if it is not created yet
 		@param - table_name: the name of the table to be created
 		'''
+		table_name = self.removePeriod(table_name)
 		self.session.execute("""
-							CREATE TABLE IF NOT EXISTS %s (date timestamp PRIMARY KEY,
+							CREATE TABLE IF NOT EXISTS %s (date text PRIMARY KEY,
 												open float,
 												high float,
 												low float,
@@ -73,33 +80,50 @@ class CassandraCluster:
 		@param - data: list of tuples containing data needing to be inserted
 		@param - table_name: the name of the table to insert the data
 		'''
+		table_name = self.removePeriod(table_name)
 		try:
 			sql_prep = self.session.prepare("""
 					INSERT INTO %s (date, open, high, low, close, volume) VALUES (?,?,?,?,?,?);
 				"""%table_name)
 			batch = BatchStatement()
-			for row_tuple in data:
-				batch.add(sql_prep, row_tuple)
+			batch.clear()
+			i = 0
+			for row in data:
+				i +=1
+				dt = row[0] #string date
+				#converting to floats and appending int volume
+				vals = [float(i) for i in row[1:-1]]
+				vals.insert(0, dt)
+				vals.append(int(row[-1]))
+				batch.add(sql_prep, tuple(vals))
+				if i%10==0:
+					print(batch.__len__())
+					self.session.execute(batch)
+					batch.clear()
+					i=0
 			self.session.execute(batch)
-			self.log.info('Batch insert complete...')
-		except:
+			self.log.info('Batch insert into %s complete...'%table_name)
+		except Exception as e:
 			self.log.info("ERROR: Could not append to table...")
+			print('Cassandra ERROR: ',e)
 	
-	def selectData(self, table_name, range):
+	def selectData(self, table_name, date):
 		'''
 		Desc - select data from a range of timestamps in the specified table name.
 		@param - table_name: the name of the table to retrieve data from
-		@param - range: list of keys to retrive data from. Format string date mm-dd-yyyy
+		@param - date: String date mm-dd-yyyy
 		'''
+		table_name = self.removePeriod(table_name)
+		result = []
 		try:
-			rows = self.session.execute("SELECT * FROM %s WHERE date > %s AND date < %s;"%(table_name,range[0],range[1]))
-			self.log.info("Querying %s WHERE date > %s AND date < %s;%(table_name,range[0],range[1]")
-			return rows
-		except:
+			rows = self.session.execute("SELECT * FROM %s WHERE date=%s;"%(table_name,"\'"+date+"\'"))
+			result = rows
+		except Exception as e:
 			self.log.info("ERROR: Could not fetch query...")
+			print('Cassandra ERROR: ',e)
+		return result
 
 if __name__ == "__main__":
-
 	# Local connection points
 	kafka_broker = '127.0.0.1:9092'
 	
@@ -125,12 +149,19 @@ if __name__ == "__main__":
 	cassDB.createKeyspace()
 	for new_table in stocks['Symbol']:
 		cassDB.createTable(new_table)
-'''
+
 	#send data from kafka to database
 	for msg in consumer:
+		today_date = str(datetime.date(datetime.now()))
 		#company stock symbol for table
-		symbol = list(msg.keys())[0]
-		#msg[symbol] returns list of tuples
-		cassDB.insert_data(msg[symbol], symbol)
-'''
+		dat = json.loads(msg.value)
+		symbol = list(dat.keys())[0]
+		# checking last update, returns type ResultSet
+		# trying to save write time
+		rs = cassDB.selectData(symbol.replace(".",""),today_date)
+		if len(list(rs)) != 0:
+			print("Table %s up to date, continuing..."%symbol)
+			continue
+		cassDB.insert_data(dat[symbol], symbol)
+
 	
