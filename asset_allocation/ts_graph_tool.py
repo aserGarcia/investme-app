@@ -1,5 +1,12 @@
 
 import plotly.graph_objects as go
+import plotly.express as px
+
+font_dict = dict(
+                family="Courier New, monospace",
+                size = 18,
+                color = "#7f7f7f"
+                )
 
 def ts_slider(df):
     '''
@@ -46,7 +53,26 @@ def ts_slider(df):
                 visible=True
             ),
             type="date"
-        )
+        ),
+        font=font_dict
     )
     
+    fig.show()
+
+
+def plot_meanVariance(df, CV):
+    '''
+    Desc - Interactive plot for mean variance analysis
+    @param df - dataframe with expected returns and volatility
+    '''
+
+    fig = px.scatter(df, x="Volatility",y="Expected_Return",
+                    size=CV,color="Sectors", hover_name="Sectors",
+                    color_discrete_sequence=px.colors.qualitative.Vivid)
+
+    fig.update_layout(
+                        title="Sector Expected Returns vs. Volatility",
+                        font=font_dict
+                        )
+
     fig.show()

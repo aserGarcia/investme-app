@@ -2,7 +2,7 @@
 from cassandra.cluster import Cluster
 import pandas as pd
 import matplotlib.pyplot as plt
-from ts_graph_slider import ts_slider
+from ts_graph_tool import ts_slider
 from mv_optimization import MVOptimization
 
 #connecting to local cassandra database
