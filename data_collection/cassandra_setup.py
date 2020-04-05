@@ -104,7 +104,7 @@ class CassandraCluster:
 			self.session.execute(batch)
 			self.log.info('Batch insert into %s complete...'%table_name)
 		except Exception as e:
-			self.log.info("ERROR: Could not append to table...")
+			self.log.info("ERROR: Could not append to table %s..."%table_name)
 			print('Cassandra ERROR: ',e)
 	
 	def selectData(self, table_name, date):

@@ -1,3 +1,7 @@
+**NOTE**
+Quandl alternative for stock prices:
+    1,000 API calls a minute, 50k API calls a day
+
 sp500 list:
 https://datahub.io/core/s-and-p-500-companies-financials
 
