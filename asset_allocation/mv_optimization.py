@@ -9,7 +9,7 @@ class MVOptimization:
     def __init__(self, stock_df):
         '''
         Desc - constructor for mean variance on stocks
-        @param stock_df -  pandas df stock time series
+        @param: stock_df -  pandas df stock time series
         '''
         self.stock_df = stock_df
         self.returns = stock_df.pct_change()
@@ -27,9 +27,9 @@ class MVOptimization:
     def annualPerformance(self, weights, mean_ret, cov_mat, only_mean=False, only_var=False):
         '''
         Desc - calculates portfolio performance on mean variance
-        @param weights - distributed weghts on portfolio options
-        @param mean_returns - average returns on time series
-        @param cov_mat - covariance matrix on stocks
+        @param: weights - distributed weghts on portfolio options
+        @param: mean_returns - average returns on time series
+        @param: cov_mat - covariance matrix on stocks
         '''
         ret = np.dot(weights.T,mean_ret)*self.trading_days
         risk = np.sqrt(np.dot(weights.T, np.dot(cov_mat,weights)))*np.sqrt(self.trading_days)
@@ -42,36 +42,25 @@ class MVOptimization:
             return_value = (ret, risk)
         return return_value
 
-    def riskAversion(self, weights, alpha, mean_ret, cov_mat, sign=-1.0):
-        return sign*np.dot(weights.T, mean_ret)-alpha*np.dot(weights.T,np.dot(cov_mat, weights))
-
     def sharpeRatio(self, weights, mean_ret, cov_mat,sign = 1.0):
         '''
-        Desc - Sharpe Ratio for weights and mean returns
-        @param weights - portions to invest in
-        @param mean_ret - mean returns pandas dataframe
-        @param cov_mat - covariance matrix
-        @param sign - returns negative sharpe ratio for minimization purposes
+        Desc - Non-parametric Sharpe Ratio for weights and annual mean returns. 
+        @param: weights - portions to invest in
+        @param: mean_ret - mean returns pandas dataframe
+        @param: cov_mat - covariance matrix
+        @param: sign - returns negative sharpe ratio for minimization purposes
         '''
-        rt, std = self.annualPerformance(weights, mean_ret, cov_mat)
-        return sign*(rt-self.risk_free_rate)/std
+        mean_ret = mean_ret*self.trading_days
+        cov_mat = cov_mat*self.trading_days
+        return sign*(np.dot(weights.T, mean_ret))/np.sqrt(np.dot(weights.T, np.dot(cov_mat, weights)))
 
     #-----------------------------------------------------#
     #               Optimization Algorithms               #       
     #-----------------------------------------------------#
-    def optRiskAversion(self, alpha=0.5):
-        #sum of weights is 1
-        constraints = ({'type':'eq','fun':lambda x: np.sum(x)-1})
-
-        #no short selling (i.e. weights > 0)
-        bounds = tuple((0.0,1.0) for stock in range(self.stock_df.shape[1]))
-        
-        args = (alpha, self.mean_ret, self.cov_ret)
-        opt_weights = spo.minimize(self.riskAversion, self.init_weights, args=args,
-                                 method='SLSQP',bounds=bounds, constraints=constraints)
-        return opt_weights
-
-    def optSharpeRatio(self):
+    def bestSharpeRatio(self):
+        '''
+        Desc - Optimizes portfolio weights off Sharpe Ratio
+        '''
         #sum of weights is 1
         constraints = ({'type':'eq','fun':lambda x: np.sum(x)-1})
 
@@ -83,7 +72,10 @@ class MVOptimization:
                                  method='SLSQP',bounds=bounds, constraints=constraints)
         return opt_weights
 
-    def optVariance(self):
+    def bestVariance(self):
+        '''
+        Desc - Optimizes portfolio weights off best Variance
+        '''
         #sum of weights is 1
         constraints = ({'type':'eq','fun':lambda x: np.sum(x)-1})
 
@@ -97,7 +89,7 @@ class MVOptimization:
         return opt_weights
 
 
-    def optEfficiency(self, target_return):
+    def bestEfficiency(self, target_return):
         #sum of weights is 1 and expected return is close to target
 
         def annualReturn(weights):
@@ -126,11 +118,16 @@ class MVOptimization:
         ts_graph_tool.ts_slider(self.returns)
 
 
-    def plot_mv(self,efficient_frontier=True):
+    def plot_mv(self,efficient_frontier=True, risk_aversion_frontier=True):
         '''
         Desc - plot mean vs. variance. Interactive plotly graph
+                Includes Efficient Fontier, Sharpe Ratio, Risk Aversion,
+                and Least Variance Portfolio Options
         '''
-        #getting annualized volatility for all stocks 
+
+        #-------------------------------------------#
+        #       Annual Volatility/Return Calc       #
+        #-------------------------------------------#
         risk_df = pd.DataFrame(data=np.sqrt(np.diag(self.cov_ret)*self.trading_days),
                             index=self.stock_df.columns,
                             columns=['Volatility'])
@@ -139,22 +136,42 @@ class MVOptimization:
         mean_df = self.mean_ret.to_frame(name="Expected_Return")*self.trading_days
         mv_df = pd.concat([risk_df,mean_df],axis=1).reset_index().rename(columns={'index':'Sectors'})
 
-        #TODO: Graph efficiency frontier
+        #------------------------------------------#
+        #       Graphing Efficienct Frontier       #
+        #------------------------------------------#
         if efficient_frontier:
-            shp = self.optSharpeRatio()
-            ret_shp, std_shp = self.annualPerformance(shp['x'],self.mean_ret,self.cov_ret)
-            min_var_w = self.optVariance()
+            
+            min_var_w = self.bestVariance()
             ret_min_var, std_min = self.annualPerformance(min_var_w['x'],self.mean_ret,self.cov_ret)
             target_returns = np.linspace(ret_min_var, 0.15, 50)
             pts = np.empty(target_returns.shape[0], dtype=np.float64)
             for i,r in enumerate(target_returns):
-                #getting volatility
-                pts[i] = self.optEfficiency(r)['fun']
+                #getting volatility for each target return
+                pts[i] = self.bestEfficiency(r)['fun']
             
             efficiency_df = pd.DataFrame(data = {'Target_Return':target_returns, 'Volatility':pts})
             efficiency_df = efficiency_df[efficiency_df.pct_change()['Volatility'].abs()>1e-08]
-        #Calculating coefficient of variance
-        ts_graph_tool.plot_meanVariance(mv_df, efficiency_df)
+
+        
+        #------------------------------------------#
+        #       Calculating Portfolio Options      #
+        #------------------------------------------#
+        #Sharpe Ratio 
+        shp = self.bestSharpeRatio()
+        shp_alloc =  self.annualPerformance(shp['x'],self.mean_ret,self.cov_ret)
+
+        
+
+        #Best Variance
+        min_var = self.bestVariance()
+        min_var_alloc = self.annualPerformance(min_var['x'], self.mean_ret, self.cov_ret)
+
+        #Portfolio Options Dataframe
+        options_tuple = list(zip(shp_alloc, min_var_alloc))
+        options_df = pd.DataFrame(data={'Returns':options_tuple[0], 'Volatility':options_tuple[1]})
+
+        #Graphing ALL Points
+        ts_graph_tool.plot_meanVariance(mv_df, efficiency_df, options_df)
 
     
 

@@ -60,13 +60,13 @@ def ts_slider(df):
     fig.show()
 
 
-def plot_meanVariance(df, eff_df):
+def plot_meanVariance(df, eff_df, options_df):
     '''
     Desc - Interactive plot for mean variance analysis
     @param df - dataframe with expected returns and volatility
     @param eff_df - efficiency dataframe for the efficiency fronteir
+    @param shp_alloc - portfolio return and std tuple of best sharpe ratio
     '''
-    print(list(df.Sectors))
 
     layout = go.Layout(
                         title="Annual Sector Expected Returns vs. Volatility",
@@ -78,31 +78,17 @@ def plot_meanVariance(df, eff_df):
                             title="Annual Returns"
                         ),
                         legend=dict(
-                            x=0.9,y=1.1
+                            x=0.9,y=1.13
                         )
                         
             )
 
     fig = go.Figure(layout=layout)
 
-    fig.add_trace(
-        go.Scatter(x=df.Volatility,
-                   y=df.Expected_Return,
-                   mode='markers+text',
-                   name='Sectors',
-                   text=[sector.replace("_avg","").replace("_"," ") for sector in df.Sectors],
-                   textposition="bottom right",
-                   marker=dict(
-                       size=list(df.Volatility*150),
-                       color=list(df.Volatility),
-                       colorscale='Aggrnyl',
-                       colorbar=dict(
-                                    title="Volatility"
-                                )
-                   )
-                )
-    )
-    
+    #-----------------------------------------------------#
+    #            Plotting Efficiency Frontier             #       
+    #-----------------------------------------------------#
+
     fig.add_trace(
         go.Scatter(x=eff_df.Volatility,
                    y=eff_df.Target_Return,
@@ -114,6 +100,59 @@ def plot_meanVariance(df, eff_df):
                        shape='spline'
                    )
                 )
+    )
+
+
+    #-----------------------------------------------------#
+    #                  Plotting Stock Scatter             #       
+    #-----------------------------------------------------#
+
+    size_scale=150
+
+    fig.add_trace(
+        go.Scatter(x=df.Volatility,
+                   y=df.Expected_Return,
+                   mode='markers+text',
+                   name='Sectors',
+                   text=[sector.replace("_avg","").replace("_"," ") for sector in df.Sectors],
+                   textposition="bottom right",
+                   marker=dict(
+                       size=list(df.Volatility*size_scale),
+                       color=list(df.Volatility),
+                       colorscale='Aggrnyl',
+                       colorbar=dict(
+                                    title="Volatility"
+                                ),
+                       line=dict(color='DarkSlateGrey')
+                   )
+                )
+    )
+    #-----------------------------------------------------#
+    #            Plotting Portfolio Options               #       
+    #-----------------------------------------------------#
+
+    fig.add_trace(
+        go.Scatter(
+            x=options_df.Volatility,
+            y=options_df.Returns,
+            name="Portfolio Options",
+            mode='markers+text',
+            text=["Sharpe-Ratio",
+                  "Least-Variance"],
+            textposition="top center",
+            textfont=dict(
+                color="#37474f"
+            ),
+            showlegend=True,
+            marker=dict(
+                size=list(options_df.Volatility*size_scale),
+                color=list(options_df.Volatility),
+                colorscale="magenta",
+                line=dict(color='DarkSlateGrey'),
+                opacity=0.9
+            )
+        )
+
     )
 
     fig.show()

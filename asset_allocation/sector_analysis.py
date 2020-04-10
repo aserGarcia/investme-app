@@ -23,15 +23,13 @@ def pandas_factory(colnames, rows):
 cdb_sess.row_factory = pandas_factory
 sector_avg = cdb_sess.execute("select * from sector_avg")
 sec_df = sector_avg._current_rows
-#ec_df = sec_df[sec_df.date>'2010-01-01']
+
 sec_df = sec_df.sort_values(by='date').set_index('date')
+
 #-----------------------------------------------------#
 #                  Sector Analysis                    #       
 #-----------------------------------------------------#
 mv = MVOptimization(sec_df)
-#ra = mv.optRiskAversion(alpha=10)
-#sr = mv.optSharpeRatio()
-#v = mv.optVariance(0.3)
-#print(v,ra)
+
 mv.plot_mv()
 #mv.plot_pctChange()
