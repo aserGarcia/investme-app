@@ -1,10 +1,13 @@
- 
 from cassandra.cluster import Cluster
 import pandas as pd
 import matplotlib.pyplot as plt
 from ts_graph_tool import ts_slider
 from mv_optimization import MVOptimization
 import numpy as np
+
+#-----------------------------------------------------#
+#                  Gathering Data                     #       
+#-----------------------------------------------------#
 
 #connecting to local cassandra database
 cluster = Cluster(contact_points=['127.0.0.1'])
@@ -20,14 +23,11 @@ def pandas_factory(colnames, rows):
 cdb_sess.row_factory = pandas_factory
 sector_avg = cdb_sess.execute("select * from sector_avg")
 sec_df = sector_avg._current_rows
+#ec_df = sec_df[sec_df.date>'2010-01-01']
 sec_df = sec_df.sort_values(by='date').set_index('date')
-
-#interactive plot
-#ts_slider(sec_df)
-w = np.full(sec_df.shape[1], 1.0/sec_df.shape[1])
-m_ret = sec_df.pct_change().mean(axis=0)
-cov_mat = sec_df.cov()
-
+#-----------------------------------------------------#
+#                  Sector Analysis                    #       
+#-----------------------------------------------------#
 mv = MVOptimization(sec_df)
 #ra = mv.optRiskAversion(alpha=10)
 #sr = mv.optSharpeRatio()
