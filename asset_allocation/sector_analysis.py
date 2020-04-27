@@ -32,7 +32,7 @@ sec_df = sec_df.sort_values(by='date').set_index('date')
 #                  Sector Analysis                    #       
 #-----------------------------------------------------#
 gru = GRU_Manager(sec_df)
-gru.plot_train_history()
+#gru.plot_train_history()
 gru.plot_predicted()
 
 #mv = MVOptimization(sec_df, "sectors")

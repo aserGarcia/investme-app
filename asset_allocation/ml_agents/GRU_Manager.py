@@ -12,7 +12,9 @@ import tensorflow as tf
 
 class GRU_Manager:
 
-    def __init__(self, df, hidden_units=None, batch_size=256, epochs=200, buffer=10000):
+    def __init__(self, df, batch_size=256,
+                 epochs=200, buffer=10000,
+                 hidden_units=None, load_last=True):
 
         self.stocks = df.copy()
 
@@ -35,14 +37,16 @@ class GRU_Manager:
             inpt = self.X_train.shape[-2:]
             hidden_units = int((2/3)*(inpt[0]*inpt[1]+self.y_val.shape[-1:][0]))
 
-        self.model = self._build_model(hidden_units)
+        if load_last:
+            try:
+                self.model = tf.keras.models.load_model('./models/saved_model')
+                print('...Loaded model')
 
-        self.history = self.model.fit(self.train_data, 
-                                      epochs=self.EPOCHS,
-                                      steps_per_epoch=self.EPOCH_TRAIN_STEPS,
-                                      validation_data=self.val_data,
-                                      validation_steps=self.EPOCH_VALID_STEPS
-                                      )
+            except Exception as e:
+                print('COULD NOT LOAD MODEL: Exception '+str(e))
+                self.model, self.history = self._build_fit_save(hidden_units)
+
+        
 
     #-----------------------------------------------------#
     #                  Data Processing Funcs              #       
@@ -101,6 +105,18 @@ class GRU_Manager:
         model.summary()
 
         return model
+
+    def _build_fit_save(self,units):
+        model = self._build_model(units)
+        history = model.fit(self.train_data, 
+                                      epochs=self.EPOCHS,
+                                      steps_per_epoch=self.EPOCH_TRAIN_STEPS,
+                                      validation_data=self.val_data,
+                                      validation_steps=self.EPOCH_VALID_STEPS
+                                      )
+        model.save('./models/saved_model')
+
+        return model, history
 
     #-----------------------------------------------------#
     #                  Plotting Functions                 #       
