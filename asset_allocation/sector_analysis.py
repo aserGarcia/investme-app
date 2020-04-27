@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from ts_graph_tool import ts_slider
 from mv_optimization import MVOptimization
 import numpy as np
+from ml_agents.GRU_Manager import GRU_Manager
 
 #-----------------------------------------------------#
 #                  Gathering Data                     #       
@@ -25,11 +26,15 @@ sector_avg = cdb_sess.execute("select * from sector_avg")
 sec_df = sector_avg._current_rows
 
 sec_df = sec_df.sort_values(by='date').set_index('date')
-
+#sec_df.to_csv("SectorPrices.csv")
+#exit()
 #-----------------------------------------------------#
 #                  Sector Analysis                    #       
 #-----------------------------------------------------#
-mv = MVOptimization(sec_df)
+gru = GRU_Manager(sec_df)
+gru.plot_train_history()
+gru.plot_predicted()
 
-mv.plot_mv()
-#mv.plot_pctChange()
+#mv = MVOptimization(sec_df, "sectors")
+#mv.plot_portfolios()
+#mv.plot_mv()

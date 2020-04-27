@@ -6,11 +6,14 @@ import matplotlib.pyplot as plt
 
 class MVOptimization:
 
-    def __init__(self, stock_df):
+    def __init__(self, stock_df,name):
         '''
         Desc - constructor for mean variance on stocks
         @param: stock_df -  pandas df stock time series
+        @param: name - name appended to the output weights file
         '''
+        self.name = name
+
         self.stock_df = stock_df
         self.returns = stock_df.pct_change()
         self.mean_ret = self.returns.mean()
@@ -19,6 +22,7 @@ class MVOptimization:
         self.risk_free_rate = 0.75 #04/08/2020
         #equal initial weights
         self.init_weights = np.full(self.mean_ret.shape[0],1.0/self.mean_ret.shape[0])
+        self.portfolios = None
 
 
     #-----------------------------------------------------#
@@ -107,6 +111,35 @@ class MVOptimization:
                                  method='SLSQP',bounds=bounds, constraints=constraints)
         return opt_weights
 
+    #-----------------------------------------------------#
+    #              Optmizing Portfolio Options            #       
+    #-----------------------------------------------------#
+    def buildPortfolios(self):
+        '''
+        Desc - Calculates best portfolio options off Minimum Risk
+                and the Sharpe Ratio
+        '''
+        #Sharpe Ratio 
+        shp = self.bestSharpeRatio()
+        shp_alloc =  self.annualPerformance(shp['x'],self.mean_ret,self.cov_ret)
+
+        #Best Variance
+        min_var = self.bestVariance()
+        min_var_alloc = self.annualPerformance(min_var['x'], self.mean_ret, self.cov_ret)
+
+        #Portfolio Options Dataframe
+        options_tuple = list(zip(shp_alloc, min_var_alloc))
+        options_df = pd.DataFrame(data={'Returns':options_tuple[0], 'Volatility':options_tuple[1]})
+
+        option_weights_df = pd.DataFrame(data={
+                                               'Stocks':self.mean_ret.index,
+                                               'Sharpe Ratio':shp['x'],
+                                               'Minimum Risk':min_var['x']
+                                             })
+        option_weights_df.to_csv('weights_'+self.name,index=False)
+
+        self.portfolios = options_df.copy()
+
 
     #-----------------------------------------------------#
     #                  Plotting Functions                 #       
@@ -117,8 +150,16 @@ class MVOptimization:
         '''
         ts_graph_tool.ts_slider(self.returns)
 
+    def plot_portfolios(self):
+        '''
+        Desc - PieCharts on portfolio build
+        '''
+        if self.portfolios == None:
+            self.buildPortfolios()
+        portfolio_weights = pd.read_csv("weights_"+self.name)
+        ts_graph_tool.plot_pie(portfolio_weights)
 
-    def plot_mv(self,efficient_frontier=True, risk_aversion_frontier=True):
+    def plot_mv(self,efficient_frontier=True):
         '''
         Desc - plot mean vs. variance. Interactive plotly graph
                 Includes Efficient Fontier, Sharpe Ratio, Risk Aversion,
@@ -151,27 +192,15 @@ class MVOptimization:
             
             efficiency_df = pd.DataFrame(data = {'Target_Return':target_returns, 'Volatility':pts})
             efficiency_df = efficiency_df[efficiency_df.pct_change()['Volatility'].abs()>1e-08]
-
         
-        #------------------------------------------#
-        #       Calculating Portfolio Options      #
-        #------------------------------------------#
-        #Sharpe Ratio 
-        shp = self.bestSharpeRatio()
-        shp_alloc =  self.annualPerformance(shp['x'],self.mean_ret,self.cov_ret)
-
-        
-
-        #Best Variance
-        min_var = self.bestVariance()
-        min_var_alloc = self.annualPerformance(min_var['x'], self.mean_ret, self.cov_ret)
-
-        #Portfolio Options Dataframe
-        options_tuple = list(zip(shp_alloc, min_var_alloc))
-        options_df = pd.DataFrame(data={'Returns':options_tuple[0], 'Volatility':options_tuple[1]})
+        #portfolio Options, MinRisk, Sharpe Ratio
+        if self.portfolios == None:
+            self.buildPortfolios()
 
         #Graphing ALL Points
-        ts_graph_tool.plot_meanVariance(mv_df, efficiency_df, options_df)
+        ts_graph_tool.plot_meanVariance(mv_df, efficiency_df, self.portfolios)
+
+    
 
     
 
