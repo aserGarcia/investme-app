@@ -5,19 +5,22 @@ Tensorflow GRU-RNN Portfolio Manager
 
 import numpy as np
 import pandas as pd
+from scipy.special import softmax
 import matplotlib.pyplot as plt
 
 import tensorflow as tf
+tf.get_logger().setLevel('WARNING')
 
 
 class GRU_Manager:
 
-    def __init__(self, df, batch_size=256,
+    def __init__(self, df,data_name, batch_size=256,
                  epochs=200, buffer=10000,
-                 hidden_units=None, load_last=True):
+                 hidden_units=None, load_last=True
+                 ):
 
         self.stocks = df.copy()
-
+        self.name=data_name
         #Define partition constants
         TRAIN_SIZE = int(0.80*len(self.stocks.index))
         VALID_SIZE = int(0.20*len(self.stocks.index))
@@ -39,14 +42,16 @@ class GRU_Manager:
 
         if load_last:
             try:
-                self.model = tf.keras.models.load_model('./models/saved_model')
+                self.model = tf.keras.models.load_model('./models/saved_model'+self.name)
                 print('...Loaded model')
 
             except Exception as e:
                 print('COULD NOT LOAD MODEL: Exception '+str(e))
                 self.model, self.history = self._build_fit_save(hidden_units)
-
-        
+                self.plot_train_history()
+        else: 
+            self.model, self.history = self._build_fit_save(hidden_units)
+            self.plot_train_history()
 
     #-----------------------------------------------------#
     #                  Data Processing Funcs              #       
@@ -112,9 +117,10 @@ class GRU_Manager:
                                       epochs=self.EPOCHS,
                                       steps_per_epoch=self.EPOCH_TRAIN_STEPS,
                                       validation_data=self.val_data,
-                                      validation_steps=self.EPOCH_VALID_STEPS
+                                      validation_steps=self.EPOCH_VALID_STEPS,
+                                      verbose=0
                                       )
-        model.save('./models/saved_model')
+        model.save('./models/saved_model'+self.name)
 
         return model, history
 
@@ -126,8 +132,8 @@ class GRU_Manager:
         loss = self.history.history['loss']
         val_loss = self.history.history['val_loss']
 
-        epochs = range(len(loss))
-
+        epochs = np.arange(len(loss))
+        
         plt.figure()
 
         plt.plot(epochs, loss, 'b', label='Training loss')
@@ -137,11 +143,26 @@ class GRU_Manager:
 
         plt.show()
 
-    def plot_predicted(self):
-        for x,y in self.val_data.take(1):
-            true = y[:,-1]
-            pred = self.model.predict(x)[:,-1]
+    def get_weights(self,pred_df):
 
-        df = pd.DataFrame({'true':true,'predicted':pred})
-        df.plot()
-        plt.show()
+        weights = pd.DataFrame(pred_df.iloc[0])
+        weights.columns = ['Weights']
+        
+        tmp = weights['Weights'].values
+        tmp[tmp<0]=0
+        weights['Weights'] = softmax(np.log(tmp))
+        weights = weights.reset_index()
+        weights = weights.rename(columns={'index':'Stocks'})
+        return weights
+
+    def save_true_and_predicted(self):
+        for x,y in self.val_data.take(1):
+            
+            true_df = pd.DataFrame(y.numpy(), columns=self.stocks.columns)
+            pred_df = pd.DataFrame(self.model.predict(x), columns=self.stocks.columns)
+            weights = self.get_weights(pred_df)
+        true_df.to_csv('./ml_data/'+self.name+'_true.csv',index=False)
+        pred_df.to_csv('./ml_data/'+self.name+'_gru_predicted.csv',index=False)
+        weights.to_csv('./portfolio_data/'+self.name+'_gru_weights.csv',index=False)
+        
+

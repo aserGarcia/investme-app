@@ -1,7 +1,6 @@
 import pandas as pd 
 import scipy.optimize as spo
 import numpy as np
-import ts_graph_tool
 import matplotlib.pyplot as plt
 
 class MVOptimization:
@@ -131,35 +130,23 @@ class MVOptimization:
         options_tuple = list(zip(shp_alloc, min_var_alloc))
         options_df = pd.DataFrame(data={'Returns':options_tuple[0], 'Volatility':options_tuple[1]})
 
+        stock_names = [n.replace("_avg","").replace("_"," ") for n in self.mean_ret.index]
+
         option_weights_df = pd.DataFrame(data={
-                                               'Stocks':self.mean_ret.index,
+                                               'Stocks':stock_names,
                                                'Sharpe Ratio':shp['x'],
                                                'Minimum Risk':min_var['x']
                                              })
-        option_weights_df.to_csv('weights_'+self.name,index=False)
+        option_weights_df.to_csv('portfolio_data/weights_'+self.name+".csv",index=False)
 
         self.portfolios = options_df.copy()
 
 
     #-----------------------------------------------------#
-    #                  Plotting Functions                 #       
+    #                  Mean Variance Results              #       
     #-----------------------------------------------------#
-    def plot_pctChange(self):
-        '''
-        Desc - Interactive plot of the mean returns from initial date
-        '''
-        ts_graph_tool.ts_slider(self.returns)
 
-    def plot_portfolios(self):
-        '''
-        Desc - PieCharts on portfolio build
-        '''
-        if self.portfolios == None:
-            self.buildPortfolios()
-        portfolio_weights = pd.read_csv("weights_"+self.name)
-        ts_graph_tool.plot_pie(portfolio_weights)
-
-    def plot_mv(self,efficient_frontier=True):
+    def get_mv(self,efficient_frontier=True):
         '''
         Desc - plot mean vs. variance. Interactive plotly graph
                 Includes Efficient Fontier, Sharpe Ratio, Risk Aversion,
@@ -198,7 +185,7 @@ class MVOptimization:
             self.buildPortfolios()
 
         #Graphing ALL Points
-        ts_graph_tool.plot_meanVariance(mv_df, efficiency_df, self.portfolios)
+        return mv_df, efficiency_df, self.portfolios
 
     
 
