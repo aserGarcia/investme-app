@@ -15,5 +15,5 @@ to the local cassandra cluster.
 
 Afterward the local Cassandra cluster which looks like below:  
 We can look up tables with SQL like commands to see our data.
-![cassandra1](/images/cassandra_tables.png)
-![cassandra2](/images/ebaydataset_example.png)
+![cassandra1](/readme_images/cassandra_tables.png)
+![cassandra2](/readme_images/ebaydataset_example.png)
