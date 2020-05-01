@@ -21,7 +21,8 @@ class GRU_Manager:
 
         self.stocks = df.copy()
         self.name=data_name
-        #Define partition constants
+
+        #Hyperparameter settings
         TRAIN_SIZE = int(0.80*len(self.stocks.index))
         VALID_SIZE = int(0.20*len(self.stocks.index))
         self.BATCH_SIZE = batch_size
@@ -30,16 +31,20 @@ class GRU_Manager:
         self.EPOCH_TRAIN_STEPS = TRAIN_SIZE/self.BATCH_SIZE
         self.EPOCH_VALID_STEPS = VALID_SIZE/self.BATCH_SIZE
 
+
+        #processing data
         self.X_train, self.y_train = self._process_data(self.stocks,end_index=TRAIN_SIZE)
         self.X_val, self.y_val = self._process_data(self.stocks,start_index=TRAIN_SIZE)
 
         self.train_data = self._convert_to_tensor(self.X_train, self.y_train)
         self.val_data = self._convert_to_tensor(self.X_val, self.y_val, validation_data=True)
 
+        #set hidden units based on data input size and output size
         if hidden_units == None:
             inpt = self.X_train.shape[-2:]
             hidden_units = int((2/3)*(inpt[0]*inpt[1]+self.y_val.shape[-1:][0]))
 
+        #loading previously trained model, training a new model if none exist
         if load_last:
             try:
                 self.model = tf.keras.models.load_model('./models/saved_model'+self.name)
@@ -98,6 +103,7 @@ class GRU_Manager:
     #-----------------------------------------------------#
 
     def _build_model(self, units):
+        #building a two stakced GRU with fully connected layer model
         model = tf.keras.models.Sequential()
         model.add(tf.keras.layers.GRU(units,
                                       input_shape=self.X_train.shape[-2:],
@@ -144,7 +150,7 @@ class GRU_Manager:
         plt.show()
 
     def get_weights(self,pred_df):
-
+        #creating weights from prediction using softmax
         weights = pd.DataFrame(pred_df.iloc[0])
         weights.columns = ['Weights']
         
@@ -156,6 +162,7 @@ class GRU_Manager:
         return weights
 
     def save_true_and_predicted(self):
+        #saving true prices, prediction of prices, and weights
         for x,y in self.val_data.take(1):
             
             true_df = pd.DataFrame(y.numpy(), columns=self.stocks.columns)

@@ -17,13 +17,14 @@ font_dict = dict(
 class DashBoard:
 
     def __init__(self,name):
-
+        #figures will be added to the list to be iterated through and
+        #displayed later
         self.figures=[]
         self.css_list = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
         self.app = dash.Dash(name=name,external_stylesheets=self.css_list)
 
     def create_dashboard(self):
-        
+        #stacking the figures in the front end (no HTML, CSS, of Javascript! Wohoo!)
         self.app.layout = html.Div([
             dcc.Graph(figure=set_figure) for set_figure in self.figures    
         ])
@@ -80,7 +81,7 @@ class DashBoard:
         fig.show()
 
     def plot_ml(self,loss, val_loss):
-
+        #plotting function for machine learning training
         epochs = [i for i in range(len(loss))]
 
         fig = go.Figure()
@@ -91,7 +92,7 @@ class DashBoard:
         self.figures.append(fig)
 
     def plot_predictions(self,true_df, pred_df,title):
-
+        #plotting predictions of machine leraning and true prices
         true_df = true_df.truncate(after=10)
         pred_df = pred_df.truncate(after=10)
 
@@ -155,7 +156,6 @@ class DashBoard:
         
         fig.update_traces(hole=0.4,hoverinfo="label+percent+name",textposition='inside')
 
-        #font_dict['size']=16
 
         fig.update_layout(
             title_text = title,

@@ -22,22 +22,29 @@ test_time_window = 50 #50 trading days (10 weeks)
 shp_chosen = pd.read_csv('portfolio_data/sharpe_chosen_stocks.csv')
 shp_stock_ts = get_stock_prices(shp_chosen['Stocks']).reset_index()
 
+
+#Splitting Data for train test in sharpe ratio stocks
 train_end_idx = len(shp_stock_ts)-test_time_window
 shp_stock_train = shp_stock_ts.truncate(after=train_end_idx).set_index('date')
 shp_stock_test = shp_stock_ts.truncate(before=train_end_idx+1).set_index('date')
 
+#Creating and fitting model trained on sharpe ratio stock data
 name="sharpe"
 gru_shp = GRU_Manager(shp_stock_train,data_name=name,epochs=EPOCHS,batch_size=BATCH_SIZE)
 gru_shp.save_true_and_predicted()
 
+#prepping variables for gaphing later
 dates = [shp_stock_train.index[-1].replace("2020-","")]
 mv_cum_returns = [0]
 gru_cum_returns = [0]
 mv_past_whts=np.full(shp_stock_test.shape[1],1.0/shp_stock_test.shape[1])
 gru_past_whts = np.full(shp_stock_test.shape[1],1.0/shp_stock_test.shape[1])
 
+
+#begin 10 week simulation
 for i in range(T,len(shp_stock_test),T):
     
+    #last week's data
     prices_window = shp_stock_test.iloc[i-T:i]
     eval_price = shp_stock_test.iloc[i-T:i+1]
     
@@ -45,11 +52,12 @@ for i in range(T,len(shp_stock_test),T):
 
     dates.append(prices_window.index[-1].replace("2020-",""))
 
-    #predictis current time step
+    #predicts next step and adjusts weights based on previous weeks data
     prediction = gru_shp.model.predict(np.expand_dims(prices_window.to_numpy(),axis=0))
     pred_df = pd.DataFrame(prediction,columns=shp_stock_test.columns)
     gru_whts = gru_shp.get_weights(pred_df)['Weights'].to_numpy()
 
+    #adding cumulative returns
     gru_alloc_value = np.dot(gru_whts.T, prices_returns)
     gru_cum_returns.append(gru_cum_returns[-1]+gru_alloc_value)
 
@@ -72,6 +80,8 @@ del gru_shp
 #------------------------------------------------
 #           Minimum Variance Comparison
 #------------------------------------------------
+#similar as above with exception of stocks, model training, and optimization
+#for statistical methods of managing.
 mr_chosen = pd.read_csv('portfolio_data/minrisk_chosen_stocks.csv')
 mr_stock_ts = get_stock_prices(mr_chosen['Stocks']).reset_index()
 
@@ -113,6 +123,7 @@ for i in range(T,len(mr_stock_test),T):
     
     mr_alloc_value = np.dot(mr_past_whts.T, prices_returns)
 
+    #using best variance
     mr_cum_returns.append(mr_cum_returns[-1]+mr_alloc_value)
     mr_whts = np.array(mv_mr.bestVariance()['x'])
     mr_whts[mr_whts<1e-5]=0.0
@@ -122,7 +133,7 @@ for i in range(T,len(mr_stock_test),T):
 
 
 plt.figure(1,figsize=(8.0,10.0))
-
+#Plotting line graph in subplot
 plt.subplot(211)
 plt.plot(dates,gru_cum_returns,label='gru-sharpe')
 plt.plot(dates,mv_cum_returns,label='mv-sharpe')
@@ -133,7 +144,7 @@ plt.ylabel('Cumulative returns')
 plt.title("Comparison on 10 Weeks Cumulative Returns")
 plt.legend()
 
-
+#plotting bar graph in subplot
 plt.subplot(212)
 plt.bar(dates, gru_cum_returns,label='gru-sharpe')
 plt.bar(dates, mv_cum_returns, label='mv-sharpe')
@@ -145,4 +156,5 @@ plt.title("Comparison on 10 Weeks Cumulative Returns")
 plt.legend()
 plt.title("Comparison on 10 Weeks Cumulative Returns")
 
+#saving subplots
 plt.savefig('compare_graphs/mivar_comparison.png')
