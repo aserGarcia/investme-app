@@ -1,4 +1,4 @@
-# **Big Data Portfolio Management-2020**
+# **Invest Me App-2020**
 
 ## **Repository Structure**
 There are three main folders for this repository.  
