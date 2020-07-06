@@ -43,4 +43,6 @@ dash.plot_pie(mr_portfolio.rename(columns={'Weights':'Minimum Risk'}),
 
 #open local host with dashboard.
 dash.create_dashboard()
-dash.app.run_server()
+
+if __name__ == '__main__':
+  dash.app.run_server()
