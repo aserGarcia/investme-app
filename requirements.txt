@@ -1,4 +1,3 @@
-alpha-vantage==2.1.3
 Brotli==1.0.7
 cachetools==4.1.0
 certifi==2020.6.20
@@ -19,7 +18,6 @@ gunicorn==20.0.4
 itsdangerous==1.1.0
 Jinja2==2.11.2
 joblib==0.14.0
-kafka-python==2.0.1
 MarkupSafe==1.1.1
 numpy==1.19.0
 oauthlib==3.1.0
@@ -37,8 +35,5 @@ requests-oauthlib==1.2.0
 retrying==1.3.3
 rsa==4.0
 schedule==0.6.0
-six==1.15.0
-tensorboard==2.1.1
-tensorflow==2.1.0
-tensorflow-estimator==2.1.0
+six==1.15.00
 Werkzeug==1.0.1
