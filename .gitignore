@@ -1,0 +1,4 @@
+investme
+*.pyc
+.DS_Store
+.env

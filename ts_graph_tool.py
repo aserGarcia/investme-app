@@ -24,7 +24,7 @@ class DashBoard:
         self.app = dash.Dash(name=name,external_stylesheets=self.css_list)
 
     def create_dashboard(self):
-        #stacking the figures in the front end (no HTML, CSS, of Javascript! Wohoo!)
+        #stacking the figures in the front end (no HTML, CSS, or Javascript! Wohoo!)
         self.app.layout = html.Div([
             dcc.Graph(figure=set_figure) for set_figure in self.figures    
         ])
