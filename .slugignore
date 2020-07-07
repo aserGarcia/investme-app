@@ -1,0 +1,7 @@
+#ignore these files, not needed for the app
+*.pdf
+*.md
+asset_allocation/ml_agents/*
+asset_allocation/compare_graphs/*
+data_collection/*
+readme_images/*
