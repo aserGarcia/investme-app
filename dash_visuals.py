@@ -23,13 +23,13 @@ class DashBoard:
         self.css_list = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
         self.app = dash.Dash(name=name,external_stylesheets=self.css_list)
 
-    def create_dashboard(self):
+    def compile(self):
         #stacking the figures in the front end (no HTML, CSS, or Javascript! Wohoo!)
         self.app.layout = html.Div([
             dcc.Graph(figure=set_figure) for set_figure in self.figures    
         ])
 
-    def ts_slider(self,df):
+    def slider(self, df, title="Data Frame Slider"):
         '''
         Desc - Interactive time series with sliders to zoom in/out.
                 plotly will open a local host page for the interactive plot.
@@ -44,7 +44,7 @@ class DashBoard:
             )
 
         #setting title
-        fig.update_layout(title_text="Sector Averages with Sliders")
+        fig.update_layout(title_text=title)
         
         # Add range slider
         fig.update_layout(
@@ -80,7 +80,7 @@ class DashBoard:
         
         fig.show()
 
-    def plot_ml(self,loss, val_loss):
+    def model_training(self,loss, val_loss):
         #plotting function for machine learning training
         epochs = [i for i in range(len(loss))]
 
@@ -91,8 +91,8 @@ class DashBoard:
                         font=font_dict)
         self.figures.append(fig)
 
-    def plot_predictions(self,true_df, pred_df,title):
-        #plotting predictions of machine leraning and true prices
+    def model_predictions(self,true_df, pred_df,title):
+        #plotting predictions of machine learning and true prices
         true_df = true_df.truncate(after=10)
         pred_df = pred_df.truncate(after=10)
 

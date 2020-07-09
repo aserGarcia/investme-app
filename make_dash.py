@@ -1,4 +1,4 @@
-from ts_graph_tool import DashBoard
+from dash_visuals import DashBoard
 import pandas as pd
 
 #set during argparse
@@ -43,7 +43,7 @@ dash.plot_pie(mr_portfolio.rename(columns={'Weights':'Minimum Risk'}),
             )
 
 #open local host with dashboard.
-dash.create_dashboard()
+dash.compile()
 
 if __name__ == '__main__':
   dash.app.run_server()
